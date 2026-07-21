@@ -1,0 +1,153 @@
+  rules_version = '2';
+  service cloud.firestore {
+    match /databases/{database}/documents {
+
+      // 0. Global Safety Net
+      match /{document=**} {
+        allow read, write: if false;
+      }
+
+      // ===============================================================
+      // Helper Functions
+      // ===============================================================
+
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      function isVerified() {
+        return isSignedIn() && request.auth.token.get('email_verified', false) == true;
+      }
+
+      function isOwner(userId) {
+        return isSignedIn() && request.auth.uid == userId;
+      }
+
+      function isAdmin() {
+        return isSignedIn() && (
+          request.auth.token.email in ["dhrubacollege15@gmail.com", "anujyounger66@gmail.com", "aditya@kinetic.edu"] ||
+          exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+        );
+      }
+
+      function isValidId(id) {
+        // Allow any characters in the ID (slashes, dots, etc) as long as it's a reasonable size
+        return id is string && id.size() > 0 && id.size() <= 128;
+      }
+
+      function incoming() {
+        return request.resource.data;
+      }
+
+      function existing() {
+        return resource.data;
+      }
+
+      // Role Lookup for Quiz
+      function isQuizAuthor(quizId) {
+        return isSignedIn() && get(/databases/$(database)/documents/quizzes/$(quizId)).data.get('authorId', '') == request.auth.uid;
+      }
+
+      // ===============================================================
+      // Validation Blueprints
+      // ===============================================================
+
+      function isValidQuiz(data) {
+        let required = ['title', 'totalQuestions', 'drawCount', 'roomCode', 'authorId', 'createdAt', 'isActive', 'status'];
+        return data.keys().hasAll(required) &&
+              data.title is string && data.title.size() <= 100 &&
+              data.totalQuestions is int && data.totalQuestions > 0 &&
+              data.drawCount is int && data.drawCount > 0 &&
+              data.roomCode is string && data.roomCode.size() <= 10 &&
+              data.authorId is string &&
+              data.isActive is bool &&
+              data.status in ['waiting', 'starting', 'active', 'finished'] &&
+              (request.method == 'create' ? data.createdAt == request.time : data.createdAt == existing().createdAt);
+      }
+
+      function isValidQuestion(data, quizId) {
+        let required = ['text', 'type', 'timer', 'options', 'correctOption', 'quizId'];
+        return data.keys().hasAll(required) &&
+              data.text is string && data.text.size() <= 5000 &&
+              data.type in ['Multiple Choice', 'True/False', 'Multiple Correct', 'Paragraph'] &&
+              data.timer is int && data.timer >= 0 &&
+              data.options is map &&
+              (data.correctOption is string || data.correctOption is list) &&
+              data.quizId == quizId;
+      }
+
+      function isValidResponse(data, quizId) {
+        let required = ['quizId', 'name', 'roll', 'progress', 'status', 'answers', 'createdAt', 'questionOrder', 'optionOrders', 'startTime', 'lastSeen', 'sessionToken'];
+        // Note: we removed 'studentId' from the required list to allow anonymous joins.
+        return data.keys().hasAll(required) &&
+              data.quizId == quizId &&
+              data.name is string &&
+              data.roll is string &&
+              data.status in ['Appearing', 'Submitted', 'Away'] &&
+              data.answers is map &&
+              data.sessionToken is string &&
+              (request.method == 'create' ? (data.createdAt == request.time) : true);
+      }
+
+      // ===============================================================
+      // Collection Rules
+      // ===============================================================
+
+      match /quizzes/{quizId} {
+        // Students can ALWAYS read and query quizzes
+        allow get, list: if true; 
+        allow create: if isVerified() && isValidQuiz(incoming());
+        allow update: if (isAdmin() || isQuizAuthor(quizId)) && isValidQuiz(incoming());
+        allow delete: if isAdmin() || isQuizAuthor(quizId);
+
+        match /questions/{questionId} {
+          // Students can ALWAYS read and query questions
+          allow get, list: if true;
+          allow create: if (isAdmin() || isQuizAuthor(quizId)) && isValidQuestion(incoming(), quizId);
+          allow update: if (isAdmin() || isQuizAuthor(quizId)) && isValidQuestion(incoming(), quizId);
+          allow delete: if isAdmin() || isQuizAuthor(quizId);
+        }
+
+        match /responses/{roll} {
+          // Student path: Very permissive to support all devices and anonymous users
+          allow read: if true;
+          allow create: if true; // Validation happens in-app, rules allow creation
+          allow update: if true; // Allow students to sync data and heartbeats
+          allow delete: if isAdmin() || isQuizAuthor(quizId);
+        }
+      }
+
+      // Collection Group rule for student attempt history
+      match /{path=**}/responses/{roll} {
+        allow list: if isSignedIn() && (
+          resource.data.get('studentId', '') == request.auth.uid || 
+          // Allow teachers to see all responses for their quizzes
+          get(/databases/$(database)/documents/quizzes/$(resource.data.get('quizId', ''))).data.authorId == request.auth.uid
+        );
+        allow get: if true; // Nested rules allow this, but explicit group allow is safer
+      }
+
+      function isValidUser(data) {
+        let required = ['id', 'full_name', 'username', 'avatar_url', 'bio', 'department', 'role', 'updated_at'];
+        // Normalize allowed roles to include 'educator' used by some parts of the app
+        let allowedRoles = ['teacher', 'admin', 'student', 'Educator', 'Student', 'educator'];
+        return data.keys().hasAll(required) &&
+              data.id is string &&
+              data.full_name is string && data.full_name.size() <= 100 &&
+              data.role in allowedRoles;
+      }
+
+      // User Profiles
+      match /users/{userId} {
+        allow read: if isOwner(userId) || isAdmin();
+        allow create: if isOwner(userId) && isValidUser(incoming());
+        allow update: if (isOwner(userId) || isAdmin()) && (
+          isAdmin() || (
+            // Owners can update their profile as long as it's valid and they don't grant themselves admin role
+            isValidUser(incoming()) && incoming().role != 'admin'
+          )
+        );
+        allow delete: if isAdmin();
+      }
+    }
+  }
