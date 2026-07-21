@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { useAuth, isAllowedEmail } from '../context/AuthContext';
 import { motion, AnimatePresence } from 'motion/react';
 import { Mail, Lock, Chrome, ArrowRight, Loader2, User, AtSign, Eye, EyeOff, Briefcase, CheckCircle2, Shield } from 'lucide-react';
 import { cn } from '@/src/lib/utils';
@@ -25,6 +25,10 @@ export default function SignUp() {
 
   const handleInitialSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isAllowedEmail(email)) {
+      setError('Only @iiitm.ac.in or authorized admin email addresses are permitted.');
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
@@ -141,7 +145,7 @@ export default function SignUp() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="w-full pl-12 pr-4 py-4 bg-surface-container-low border border-outline-variant/30 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all font-body"
-                    placeholder="user@gmail.com"
+                    placeholder="user@iiitm.ac.in"
                   />
                 </div>
               </div>

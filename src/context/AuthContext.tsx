@@ -51,6 +51,16 @@ export function isAdminEmail(email?: string | null): boolean {
   return ADMIN_EMAILS.includes(normalized) || normalized.startsWith('admin@');
 }
 
+export function isIiitmEmail(email?: string | null): boolean {
+  if (!email) return false;
+  return email.trim().toLowerCase().endsWith('@iiitm.ac.in');
+}
+
+export function isAllowedEmail(email?: string | null): boolean {
+  if (!email) return false;
+  return isIiitmEmail(email) || isAdminEmail(email);
+}
+
 interface AuthContextType {
   user: User | any | null;
   profile: Profile | null;
@@ -180,7 +190,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     const provider = new GoogleAuthProvider();
     try {
-      await signInWithPopup(auth, provider);
+      const result = await signInWithPopup(auth, provider);
+      if (!isAllowedEmail(result.user?.email)) {
+        await firebaseSignOut(auth);
+        throw new Error("Access denied. Only @iiitm.ac.in or authorized admin accounts are allowed.");
+      }
     } catch (error: any) {
       // Silence log for user cancellation to avoid console noise
       if (error.code !== 'auth/popup-closed-by-user') {
@@ -222,6 +236,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       localStorage.setItem('demo_profile', JSON.stringify(mockProfile));
       return;
     }
+    if (!isAllowedEmail(email)) {
+      throw new Error("Only @iiitm.ac.in or authorized admin email addresses are allowed.");
+    }
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       await reload(userCredential.user);
@@ -257,6 +274,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       localStorage.setItem('demo_user', JSON.stringify(mockUser));
       localStorage.setItem('demo_profile', JSON.stringify(mockProfile));
       return;
+    }
+    if (!isAllowedEmail(email)) {
+      throw new Error("Only @iiitm.ac.in or authorized admin email addresses are allowed.");
     }
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
@@ -306,6 +326,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const sendPasswordReset = async (email: string) => {
+    if (!isAllowedEmail(email)) {
+      throw new Error("Only @iiitm.ac.in or authorized admin email addresses are allowed.");
+    }
     try {
       await sendPasswordResetEmail(auth, email);
     } catch (error) {
@@ -332,6 +355,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const sendOTP = async (email: string) => {
+    if (!isAllowedEmail(email)) {
+      throw new Error("Only @iiitm.ac.in or authorized admin email addresses are allowed.");
+    }
     try {
       const response = await fetch('/api/otp/send', {
         method: 'POST',
