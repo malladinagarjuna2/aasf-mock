@@ -161,7 +161,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signInWithGoogle = async () => {
     if (isDemoMode) {
-      const mockUser = { uid: 'demo-teacher', displayName: 'Demo Teacher', email: 'demo@kinetic.edu' };
+      const mockUser = { uid: 'demo-teacher', displayName: 'Demo Teacher', email: 'demo@aasf.edu' };
       const mockProfile: Profile = {
         id: 'demo-teacher',
         full_name: 'Demo Teacher',
