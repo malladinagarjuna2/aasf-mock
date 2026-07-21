@@ -113,7 +113,7 @@ export default function TopAppBar({ variant = "standard", progress, currentTask,
               <div className="flex items-center gap-4">
                 <div className="hidden md:block text-right">
                   <p className="text-sm font-bold text-on-surface leading-none mb-1">{profile?.full_name || user.email}</p>
-                  <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest leading-none">{profile?.role || 'Educator'}</p>
+                  <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest leading-none">{profile?.role ? (profile.role.toLowerCase() === 'admin' ? 'Administrator' : profile.role.toLowerCase() === 'teacher' ? 'Educator' : profile.role) : 'Educator'}</p>
                 </div>
                 <Link to="/profile" className="w-10 h-10 rounded-xl bg-primary-container flex items-center justify-center text-on-primary-container font-bold overflow-hidden shadow-sm border border-outline-variant/20">
                   {(profile?.avatar_url || user?.photoURL) ? (

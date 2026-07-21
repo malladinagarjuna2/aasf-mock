@@ -373,7 +373,7 @@ export default function Profile() {
                   <h1 className="font-headline text-4xl font-extrabold text-on-surface tracking-tight">{teacherInfo.name}</h1>
                   <span className="px-4 py-1 bg-primary/10 text-primary rounded-full text-xs font-bold uppercase tracking-widest inline-flex items-center gap-2 self-center md:self-auto">
                     <Shield className="w-3 h-3" />
-                    {teacherInfo.role === 'educator' ? 'Educator' : teacherInfo.role === 'teacher' ? 'Educator' : 'Student'}
+                    {teacherInfo.role === 'admin' ? 'Administrator' : teacherInfo.role === 'educator' ? 'Educator' : teacherInfo.role === 'teacher' ? 'Educator' : 'Student'}
                   </span>
                   {(profile.role?.toLowerCase() === 'student') && profile.roll && (
                     <span className="px-4 py-1 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-full text-xs font-bold uppercase tracking-widest inline-flex items-center gap-2 self-center md:self-auto">
@@ -431,20 +431,32 @@ export default function Profile() {
 
               <div className="space-y-2">
                 <label className="text-xs font-bold uppercase tracking-widest text-on-surface-variant ml-1">Role</label>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-3 gap-3">
                   <button
+                    type="button"
                     onClick={() => setEditedProfile({...editedProfile, role: 'educator'})}
                     className={cn(
-                      "py-4 rounded-2xl border-2 font-bold transition-all",
-                      editedProfile.role === 'educator' ? "border-primary bg-primary/5 text-primary" : "border-outline-variant/30 text-on-surface-variant"
+                      "py-4 rounded-2xl border-2 font-bold transition-all text-center text-xs md:text-sm",
+                      (editedProfile.role === 'educator' || editedProfile.role === 'teacher') ? "border-primary bg-primary/5 text-primary" : "border-outline-variant/30 text-on-surface-variant"
                     )}
                   >
                     Educator
                   </button>
                   <button
+                    type="button"
+                    onClick={() => setEditedProfile({...editedProfile, role: 'admin'})}
+                    className={cn(
+                      "py-4 rounded-2xl border-2 font-bold transition-all text-center text-xs md:text-sm",
+                      editedProfile.role === 'admin' ? "border-primary bg-primary/5 text-primary" : "border-outline-variant/30 text-on-surface-variant"
+                    )}
+                  >
+                    Admin
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => setEditedProfile({...editedProfile, role: 'student'})}
                     className={cn(
-                      "py-4 rounded-2xl border-2 font-bold transition-all",
+                      "py-4 rounded-2xl border-2 font-bold transition-all text-center text-xs md:text-sm",
                       editedProfile.role === 'student' ? "border-primary bg-primary/5 text-primary" : "border-outline-variant/30 text-on-surface-variant"
                     )}
                   >

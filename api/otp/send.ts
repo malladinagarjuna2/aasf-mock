@@ -41,7 +41,7 @@ export default async function handler(req: any, res: any) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const email = String(req.body?.email || "").trim();
+  const email = String(req.body?.email || "").trim().toLowerCase();
   if (!email) {
     return res.status(400).json({ error: "Email is required" });
   }
@@ -52,14 +52,14 @@ export default async function handler(req: any, res: any) {
   const user = process.env.EMAIL_USER;
   const pass = process.env.EMAIL_PASS;
 
-  if (!user || !pass) {
-    return res.json({
-      success: true,
-      message: "OTP generated, but email credentials are not configured.",
-      devMode: true,
-      otp,
-    });
-  }
+  // if (!user || !pass) {
+  //   return res.json({
+  //     success: true,
+  //     message: "OTP generated, but email credentials are not configured.",
+  //     devMode: true,
+  //     otp,
+  //   });
+  // }
 
   try {
     const transporter = nodemailer.createTransport({
@@ -68,13 +68,13 @@ export default async function handler(req: any, res: any) {
     });
 
     await transporter.sendMail({
-      from: `"Kinetic Educator" <${user}>`,
+      from: `"AASF" <${user}>`,
       to: email,
-      subject: "Your Verification Code - Kinetic Educator",
+      subject: "Your Verification Code - AASF",
       text: `Your verification code is: ${otp}. It will expire in 5 minutes.`,
       html: `
         <div style="font-family: sans-serif; padding: 20px; border: 1px solid #eee; border-radius: 10px; max-width: 500px; margin: auto;">
-          <h2 style="color: #6200EE; text-align: center;">Kinetic Educator</h2>
+          <h2 style="color: #6200EE; text-align: center;">AASF</h2>
           <p>Hi there,</p>
           <p>Your verification code for signing in/up is:</p>
           <div style="background: #F5F5F5; padding: 20px; text-align: center; font-size: 32px; font-weight: bold; letter-spacing: 5px; border-radius: 5px; margin: 20px 0;">

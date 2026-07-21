@@ -43,8 +43,8 @@ async function startServer() {
 
   // Endpoint to send OTP
   app.post("/api/otp/send", async (req, res) => {
-    const { email } = req.body;
-    if (!email) {
+    const rawEmail = String(req.body?.email || "").trim().toLowerCase();
+    if (!rawEmail) {
       return res.status(400).json({ error: "Email is required" });
     }
 
@@ -52,32 +52,30 @@ async function startServer() {
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const expires = Date.now() + 5 * 60 * 1000; // 5 minutes expiry
 
-    otpStore[email] = { otp, expires };
+    otpStore[rawEmail] = { otp, expires };
 
     const transporter = getTransporter();
     if (!transporter) {
-      // For development/demo, log the OTP if no email config
-      console.log(`[DEV MODE] OTP for ${email}: ${otp}`);
-      return res.json({ 
-        success: true, 
-        message: "OTP sent (logged to console as EMAIL_USER/EMAIL_PASS is missing)",
-        devMode: true,
-        otp: otp // Include OTP in response for development ease
+      console.log(`[DEV MODE] OTP for ${rawEmail}: ${otp}`);
+      return res.json({
+        success: true,
+        message: "OTP generated in Sandbox mode.",
+        devMode: true
       });
     }
 
     try {
       await transporter.sendMail({
-        from: `"Kinetic Educator" <${process.env.EMAIL_USER}>`,
-        to: email,
-        subject: "Your Verification Code - Kinetic Educator",
+        from: `"AASF" <${process.env.EMAIL_USER}>`,
+        to: rawEmail,
+        subject: "Your Verification Code - AASF MOCK APP",
         text: `Your verification code is: ${otp}. It will expire in 5 minutes.`,
         html: `
           <div style="font-family: sans-serif; padding: 20px; border: 1px solid #eee; border-radius: 10px; max-width: 500px; margin: auto;">
-            <h2 style="color: #6200EE; text-align: center;">Kinetic Educator</h2>
+            <h2 style="color: #6200EE; text-align: center;">AASF MOCK APP</h2>
             <p>Hi there,</p>
             <p>Your verification code for signing in/up is:</p>
-            <div style="background: #F5F5F5; padding: 20px; text-align: center; font-size: 32px; font-weight: bold; letter-spacing: 5px; border-radius: 5px; margin: 20px 0;">
+            <div style="background: #F5F5F5; padding: 20px; text-align: center; font-size: 32px; font-weight: bold; letter-spacing: 5px; border-radius: 5px; margin: 20px 0; user-select: all;">
               ${otp}
             </div>
             <p style="color: #666; font-size: 12px; text-align: center;">This code will expire in 5 minutes. If you didn't request this, you can safely ignore this email.</p>
@@ -86,14 +84,20 @@ async function startServer() {
       });
       res.json({ success: true, message: "OTP sent successfully" });
     } catch (error: any) {
-      console.error("Error sending email:", error);
-      res.status(500).json({ error: "Failed to send OTP", details: error.message });
+      console.error("Error sending email via Nodemailer:", error?.message || error);
+      console.log(`[DEV MODE FALLBACK] OTP for ${rawEmail}: ${otp}`);
+      res.json({
+        success: true,
+        message: "Email sending failed. Using Sandbox mode.",
+        devMode: true
+      });
     }
   });
 
   // Endpoint to verify OTP
   app.post("/api/otp/verify", (req, res) => {
-    const { email, otp } = req.body;
+    const email = String(req.body?.email || "").trim().toLowerCase();
+    const otp = String(req.body?.otp || "").trim().replace(/\D/g, "");
     if (!email || !otp) {
       return res.status(400).json({ error: "Email and OTP are required" });
     }

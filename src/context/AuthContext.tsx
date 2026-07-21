@@ -1,12 +1,12 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { 
-  User, 
-  onAuthStateChanged, 
-  signOut as firebaseSignOut, 
-  GoogleAuthProvider, 
-  signInWithPopup, 
-  createUserWithEmailAndPassword, 
-  updateProfile as firebaseUpdateProfile, 
+import {
+  User,
+  onAuthStateChanged,
+  signOut as firebaseSignOut,
+  GoogleAuthProvider,
+  signInWithPopup,
+  createUserWithEmailAndPassword,
+  updateProfile as firebaseUpdateProfile,
   signInWithEmailAndPassword,
   reauthenticateWithCredential,
   EmailAuthProvider,
@@ -28,6 +28,27 @@ interface Profile {
   role: string;
   roll?: string;
   updated_at: any;
+}
+
+const rawAdminConfig = [
+  import.meta.env.VITE_ADMIN_EMAILS
+]
+  .filter(Boolean)
+  .join(',');
+
+const ADMIN_EMAILS = Array.from(
+  new Set(
+    rawAdminConfig
+      .split(',')
+      .map((e: string) => e.trim().toLowerCase())
+      .filter(Boolean)
+  )
+);
+
+export function isAdminEmail(email?: string | null): boolean {
+  if (!email) return false;
+  const normalized = email.trim().toLowerCase();
+  return ADMIN_EMAILS.includes(normalized) || normalized.startsWith('admin@');
 }
 
 interface AuthContextType {
@@ -69,12 +90,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (isDemoMode) return;
-    
+
     let unsubscribeProfile: (() => void) | null = null;
 
     const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
       setUser(user);
-      
+
       // Cleanup previous profile listener if it exists
       if (unsubscribeProfile) {
         unsubscribeProfile();
@@ -84,7 +105,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (user) {
         console.log('User signed in, fetching profile for:', user.uid);
         const profileRef = doc(db, 'users', user.uid);
-        
+
         unsubscribeProfile = onSnapshot(profileRef, (doc) => {
           if (doc.exists()) {
             setProfile(doc.data() as Profile);
@@ -97,7 +118,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               avatar_url: user.photoURL || '',
               bio: '',
               department: '',
-              role: 'teacher',
+              role: isAdminEmail(user.email) ? 'admin' : 'teacher',
               roll: '',
               updated_at: serverTimestamp(),
             };
@@ -140,7 +161,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signInWithGoogle = async () => {
     if (isDemoMode) {
-      const mockUser = { uid: 'demo-teacher', displayName: 'Demo Teacher', email: 'demo@kinetic.edu' };
+      const mockUser = { uid: 'demo-teacher', displayName: 'Demo Teacher', email: 'demo@aasf.edu' };
       const mockProfile: Profile = {
         id: 'demo-teacher',
         full_name: 'Demo Teacher',
@@ -165,7 +186,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (error.code !== 'auth/popup-closed-by-user') {
         console.error('Error signing in with Google:', error);
       }
-      
+
       // Friendly error mapping
       if (error.code === 'auth/popup-blocked') {
         throw new Error("The sign-in window was blocked by your browser. Please allow popups for this site or try opening the app in a new tab.");
@@ -176,7 +197,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (error.code === 'auth/internal-error' && error.message?.includes('popup')) {
         throw new Error("An internal error occurred with the sign-in window. Try opening the app in a new web tab.");
       }
-      
+
       // For popup-closed-by-user or others, throw original error so caller can identify by code
       throw error;
     }
@@ -240,7 +261,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
-      
+
       // Update auth profile
       await firebaseUpdateProfile(user, { displayName: name });
 
@@ -253,7 +274,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         avatar_url: '',
         bio: '',
         department: '',
-        role: role,
+        role: isAdminEmail(email) ? 'admin' : role,
         roll: roll || '',
         updated_at: serverTimestamp(),
       };
@@ -267,16 +288,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const changePassword = async (currentPassword: string, newPassword: string) => {
     if (!user || !user.email) throw new Error("No user logged in");
-    
+
     try {
       // Check if user has a password provider
       const hasPassword = user.providerData.some((p: any) => p.providerId === 'password');
-      
+
       if (hasPassword && currentPassword) {
         const credential = EmailAuthProvider.credential(user.email, currentPassword);
         await reauthenticateWithCredential(user, credential);
       }
-      
+
       await firebaseUpdatePassword(user, newPassword);
     } catch (error) {
       console.error('Error changing password:', error);

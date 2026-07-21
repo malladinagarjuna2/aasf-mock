@@ -25,7 +25,7 @@
 
       function isAdmin() {
         return isSignedIn() && (
-          request.auth.token.email in ["dhrubacollege15@gmail.com", "anujyounger66@gmail.com", "aditya@kinetic.edu"] ||
+          request.auth.token.email in ["s.knownuser047@gmail.com", "subham15062005@gmail.com"] ||
           exists(/databases/$(database)/documents/admins/$(request.auth.uid))
         );
       }

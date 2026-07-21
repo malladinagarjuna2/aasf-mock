@@ -8,7 +8,7 @@ import firebaseConfig from '../firebase-applet-config.json';
 const isDemoMode = firebaseConfig.projectId === 'remixed-project-id' || !firebaseConfig.apiKey;
 
 if (isDemoMode) {
-  console.warn("Kinetic Educator is running in DEMO MODE. Data will not persist between sessions.");
+  console.warn("AASF is running in DEMO MODE. Data will not persist between sessions.");
 }
 
 const app = initializeApp(firebaseConfig);

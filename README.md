@@ -1,4 +1,4 @@
-# ⚡ Kinetic Educator
+# ⚡ AASF
 
 [![Vite](https://img.shields.io/badge/Vite-646CFF?style=for-the-badge&logo=vite&logoColor=white)](https://vitejs.dev/)
 [![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://reactjs.org/)
@@ -6,7 +6,7 @@
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 
-**Kinetic Educator** is a high-energy, real-time educational platform designed to transform traditional classroom assessments into interactive, pulse-pounding experiences. Built for modern educators and students, it bridges the gap between active learning and instant data-driven insights.
+**AASF** is a high-energy, real-time educational platform designed to transform traditional classroom assessments into interactive, pulse-pounding experiences. Built for modern educators and students, it bridges the gap between active learning and instant data-driven insights.
 
 ---
 
