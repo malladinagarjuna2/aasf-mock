@@ -31,8 +31,7 @@ export default function Login() {
     try {
       const data = await sendOTP(email);
 
-      if (data?.devMode && data?.otp) {
-        setOtp(data.otp);
+      if (data?.devMode) {
         setIsSandbox(true);
       } else {
         setIsSandbox(false);
@@ -218,7 +217,7 @@ export default function Login() {
                 {isSandbox && (
                   <div className="mt-3 p-2 bg-amber-500/10 border border-amber-500/20 rounded-lg">
                     <p className="text-xs font-bold text-amber-600 uppercase tracking-wider">Sandbox Mode</p>
-                    <p className="text-[10px] text-amber-700 mt-0.5 leading-relaxed">Email config is missing in Settings. Code auto-filled for testing.</p>
+                    <p className="text-[10px] text-amber-700 mt-0.5 leading-relaxed">Running in Sandbox mode (SMTP email not configured or unreachable).</p>
                   </div>
                 )}
               </div>

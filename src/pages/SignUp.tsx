@@ -30,8 +30,7 @@ export default function SignUp() {
     try {
       const data = await sendOTP(email);
 
-      if (data?.devMode && data?.otp) {
-        setOtp(data.otp);
+      if (data?.devMode) {
         setIsSandbox(true);
       } else {
         setIsSandbox(false);
@@ -254,7 +253,7 @@ export default function SignUp() {
                 {isSandbox && (
                   <div className="mt-3 p-2 bg-amber-500/10 border border-amber-500/20 rounded-lg">
                     <p className="text-xs font-bold text-amber-600 uppercase tracking-wider">Sandbox Mode</p>
-                    <p className="text-[10px] text-amber-700 mt-0.5 leading-relaxed">Email config is missing in Settings. Code auto-filled for testing.</p>
+                    <p className="text-[10px] text-amber-700 mt-0.5 leading-relaxed">Running in Sandbox mode (SMTP email not configured or unreachable).</p>
                   </div>
                 )}
               </div>
@@ -264,9 +263,14 @@ export default function SignUp() {
                 <input
                   type="text"
                   required
-                  maxLength={6}
                   value={otp}
-                  onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
+                  onPaste={(e) => {
+                    e.preventDefault();
+                    const pasted = e.clipboardData.getData('text');
+                    const cleaned = pasted.replace(/\D/g, '').slice(0, 6);
+                    setOtp(cleaned);
+                  }}
+                  onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
                   className="w-full py-5 bg-surface-container-low border-2 border-outline-variant/30 rounded-2xl focus:ring-4 focus:ring-primary/10 focus:border-primary outline-none transition-all font-headline text-3xl font-black text-center tracking-[0.5em] placeholder:tracking-normal placeholder:text-sm placeholder:font-bold"
                   placeholder="000000"
                 />
