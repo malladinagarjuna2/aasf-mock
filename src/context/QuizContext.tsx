@@ -300,7 +300,7 @@ export function QuizProvider({ children }: { children: ReactNode }) {
     setLoading(true);
     const quizzesRef = collection(db, 'quizzes');
     const q = isAdmin 
-      ? query(quizzesRef, orderBy('createdAt', 'desc'))
+      ? query(quizzesRef, orderBy('createdAt', 'desc'), limit(100))
       : query(quizzesRef, where('authorId', '==', user.uid), orderBy('createdAt', 'desc'));
 
     const unsubscribeQuizzes = onSnapshot(q, (snapshot) => {
@@ -349,7 +349,7 @@ export function QuizProvider({ children }: { children: ReactNode }) {
     });
 
     return () => unsubscribeQuizzes();
-  }, [user, profile?.role]);
+  }, [user?.uid, user?.email, profile?.role]);
 
   // Restore quiz session for students from localStorage
   useEffect(() => {
@@ -810,11 +810,12 @@ export function QuizProvider({ children }: { children: ReactNode }) {
           }
 
           // Resume/Takeover: Update sessionToken and heartbeat atomically
+          const participantEmail = p.email || user?.email;
           transaction.update(docRef, sanitizeForFirestore({ 
             sessionToken, 
             lastSeen: now,
             status: 'Appearing',
-            ...(p.email ? { email: p.email } : {})
+            ...(participantEmail ? { email: participantEmail } : {})
           }));
         } else {
           if (latestQuiz.status === 'finished') {
@@ -848,6 +849,7 @@ export function QuizProvider({ children }: { children: ReactNode }) {
             ...p,
             quizId: activeQuiz.id,
             studentId: user?.uid || null,
+            email: p.email || user?.email || undefined,
             progress: 0,
             status: 'Appearing' as const,
             answers: {},
@@ -1003,17 +1005,19 @@ export function QuizProvider({ children }: { children: ReactNode }) {
     if (isDemoMode) {
       mockStore.deleteResponse(quiz.id, roll);
       setCurrentStudentRoll(null);
+      sessionStorage.removeItem('currentStudentRoll');
       localStorage.removeItem('currentStudentRoll');
       return;
     }
     try {
       const docRef = doc(db, 'quizzes', quiz.id, 'responses', roll);
       await deleteDoc(docRef);
+      setCurrentStudentRoll(null);
+      sessionStorage.removeItem('currentStudentRoll');
+      localStorage.removeItem('currentStudentRoll');
     } catch (err) {
       handleFirestoreError(err, OperationType.DELETE, `quizzes/${quiz.id}/responses/${roll}`);
-    } finally {
-      setCurrentStudentRoll(null);
-      localStorage.removeItem('currentStudentRoll');
+      throw err;
     }
   };
 
