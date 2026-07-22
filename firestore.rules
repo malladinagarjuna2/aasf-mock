@@ -120,7 +120,7 @@
           allow read: if true;
           allow create: if true; // Validation happens in-app, rules allow creation
           allow update: if true; // Allow students to sync data and heartbeats
-          allow delete: if isAdmin() || isQuizAuthor(quizId);
+          allow delete: if true; // Allow students to leave lobby or admins/teachers to clear responses
         }
       }
 

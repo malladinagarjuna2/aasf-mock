@@ -866,6 +866,7 @@ export default function Dashboard() {
                     <tr className="bg-surface-container-low/50">
                       <th className="px-8 py-4 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Student</th>
                       <th className="px-8 py-4 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Roll Number</th>
+                      <th className="px-8 py-4 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Email</th>
                       <th className="px-8 py-4 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant text-center">Score</th>
                       <th className="px-8 py-4 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant text-center">Current Progress</th>
                       <th className="px-8 py-4 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant text-right">Status</th>
@@ -882,6 +883,9 @@ export default function Dashboard() {
                         </td>
                         <td className="px-8 py-6">
                           <span className="font-medium text-sm text-on-surface-variant">{student.roll}</span>
+                        </td>
+                        <td className="px-8 py-6">
+                          <span className="font-mono text-xs text-on-surface-variant">{student.email || '-'}</span>
                         </td>
                         <td className="px-8 py-6 text-center">
                           <span className="font-headline font-black text-primary">

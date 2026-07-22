@@ -1,7 +1,7 @@
 import TopAppBar from "@/src/components/TopAppBar";
 import BottomNavBar from "@/src/components/BottomNavBar";
 import ThemeToggle from "@/src/components/ThemeToggle";
-import { ArrowRight, Radio, Hourglass, CheckCircle2, Info, Loader2 } from "lucide-react";
+import { ArrowRight, Radio, Hourglass, CheckCircle2, Info, Loader2, Mail, KeyRound, ShieldCheck } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
@@ -21,9 +21,92 @@ export default function StudentJoin() {
   const [error, setError] = useState("");
   const [isCodeValid, setIsCodeValid] = useState(false);
   const [isValidating, setIsValidating] = useState(false);
+  const [email, setEmail] = useState("");
+  const [otp, setOtp] = useState("");
+  const [otpSent, setOtpSent] = useState(false);
+  const [isOtpVerified, setIsOtpVerified] = useState(false);
+  const [sendingOtp, setSendingOtp] = useState(false);
+  const [verifyingOtp, setVerifyingOtp] = useState(false);
+  const [otpError, setOtpError] = useState("");
+  const [otpSuccessMsg, setOtpSuccessMsg] = useState("");
+  const [resendTimer, setResendTimer] = useState(0);
+
   const { quiz, findQuizByRoomCode, joinQuiz, participants, isRollAllowed, currentStudentRoll } = useQuiz();
-  const { user, profile } = useAuth();
+  const { user, profile, sendOTP, verifyOTP } = useAuth();
   const navigate = useNavigate();
+
+  // Pre-fill and auto-verify email if user is logged in
+  useEffect(() => {
+    if (user && user.email) {
+      setEmail(user.email);
+      setIsOtpVerified(true);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (resendTimer > 0) {
+      const interval = setInterval(() => {
+        setResendTimer(prev => prev - 1);
+      }, 1000);
+      return () => clearInterval(interval);
+    }
+  }, [resendTimer]);
+
+  const handleSendOtp = async () => {
+    const cleanEmail = email.trim().toLowerCase();
+    if (!cleanEmail) {
+      setOtpError("Please enter your @iiitm.ac.in email address.");
+      return;
+    }
+
+    if (!cleanEmail.endsWith("@iiitm.ac.in")) {
+      setOtpError("Only @iiitm.ac.in email addresses are permitted.");
+      return;
+    }
+
+    setSendingOtp(true);
+    setOtpError("");
+    setOtpSuccessMsg("");
+
+    try {
+      const res = await sendOTP(cleanEmail);
+      setOtpSent(true);
+      setResendTimer(60);
+      if (res.devMode) {
+        setOtpSuccessMsg("Verification code generated! (Sandbox mode)");
+      } else {
+        setOtpSuccessMsg("Verification code sent to your email!");
+      }
+    } catch (err: any) {
+      setOtpError(err.message || "Failed to send OTP. Please check your email address.");
+    } finally {
+      setSendingOtp(false);
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanOtp = otp.trim();
+
+    if (!cleanOtp) {
+      setOtpError("Please enter the 6-digit verification code.");
+      return;
+    }
+
+    setVerifyingOtp(true);
+    setOtpError("");
+    setOtpSuccessMsg("");
+
+    try {
+      await verifyOTP(cleanEmail, cleanOtp);
+      setIsOtpVerified(true);
+      setOtpSuccessMsg("Email verified successfully!");
+    } catch (err: any) {
+      setOtpError(err.message || "Invalid or expired OTP. Please try again.");
+    } finally {
+      setVerifyingOtp(false);
+    }
+  };
 
   // Session Guardian: If already joined an active session, don't allow staying on join page
   useEffect(() => {
@@ -132,6 +215,19 @@ export default function StudentJoin() {
       return;
     }
 
+    const cleanEmail = email.trim().toLowerCase();
+    if (!cleanEmail || !cleanEmail.endsWith("@iiitm.ac.in")) {
+      setError("Please enter a valid @iiitm.ac.in email address.");
+      setIsValidating(false);
+      return;
+    }
+
+    if (!user && !isOtpVerified) {
+      setError("Please verify your @iiitm.ac.in email address using OTP before joining.");
+      setIsValidating(false);
+      return;
+    }
+
     // Roll number validation
     if (targetQuiz.allowedRollPatterns && targetQuiz.allowedRollPatterns.length > 0) {
       if (!isRollAllowed(roll, targetQuiz.allowedRollPatterns)) {
@@ -142,7 +238,7 @@ export default function StudentJoin() {
     }
 
     try {
-      await joinQuiz({ name, roll }, targetQuiz);
+      await joinQuiz({ name, roll, email: cleanEmail }, targetQuiz);
       
       // Check if this student already submitted
       const p = (participants || []).find(part => part.roll === roll);
@@ -302,6 +398,114 @@ export default function StudentJoin() {
                           type="text" 
                         />
                       </div>
+
+                      <div>
+                        <label className="block text-sm font-semibold text-on-surface-variant uppercase tracking-widest mb-3" htmlFor="student-email">
+                          @iiitm.ac.in Email Address
+                        </label>
+                        <div className="relative">
+                          <input 
+                            id="student-email"
+                            value={email}
+                            disabled={isOtpVerified || !!user}
+                            onChange={(e) => { 
+                              setEmail(e.target.value); 
+                              setError(""); 
+                              setOtpError("");
+                              if (isOtpVerified && !user) setIsOtpVerified(false);
+                            }}
+                            className={cn(
+                              "w-full bg-surface-container-low border-0 border-b-2 focus:ring-0 text-xl font-headline font-bold py-4 pl-4 pr-12 placeholder:text-outline-variant/30 transition-all duration-300 rounded-t-lg",
+                              isOtpVerified ? "border-emerald-500 text-emerald-800 bg-emerald-50/30" : "border-transparent focus:border-primary"
+                            )}
+                            placeholder="student@iiitm.ac.in" 
+                            type="email" 
+                          />
+                          {isOtpVerified ? (
+                            <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-1 text-emerald-600 font-bold text-xs">
+                              <ShieldCheck className="w-5 h-5 text-emerald-500" />
+                            </div>
+                          ) : (
+                            <div className="absolute right-4 top-1/2 -translate-y-1/2 text-on-surface-variant/40">
+                              <Mail className="w-5 h-5" />
+                            </div>
+                          )}
+                        </div>
+
+                        {/* OTP Verification Section for non-logged in users */}
+                        {!user && !isOtpVerified && (
+                          <div className="mt-4 p-4 bg-surface-container-low/80 rounded-xl border border-outline-variant/15 space-y-4">
+                            <div className="flex items-center justify-between gap-3">
+                              <span className="text-xs font-bold uppercase tracking-wider text-on-surface-variant flex items-center gap-1.5">
+                                <KeyRound className="w-4 h-4 text-primary" />
+                                Email OTP Verification
+                              </span>
+                              
+                              {!otpSent ? (
+                                <button
+                                  type="button"
+                                  onClick={handleSendOtp}
+                                  disabled={sendingOtp || !email.trim().toLowerCase().endsWith("@iiitm.ac.in")}
+                                  className="px-4 py-2 bg-primary text-on-primary text-xs font-bold rounded-lg shadow-sm hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50 flex items-center gap-1.5"
+                                >
+                                  {sendingOtp ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Send OTP"}
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={handleSendOtp}
+                                  disabled={sendingOtp || resendTimer > 0}
+                                  className="text-xs text-primary font-bold hover:underline disabled:opacity-50 flex items-center gap-1"
+                                >
+                                  {resendTimer > 0 ? `Resend code in ${resendTimer}s` : "Resend OTP"}
+                                </button>
+                              )}
+                            </div>
+
+                            {otpSent && (
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="text"
+                                  maxLength={6}
+                                  value={otp}
+                                  onChange={(e) => { setOtp(e.target.value.replace(/\D/g, '')); setOtpError(""); }}
+                                  placeholder="6-digit code"
+                                  className="flex-1 bg-surface-container-lowest border border-outline-variant/20 text-center text-lg font-mono font-bold tracking-widest py-2.5 px-3 rounded-lg focus:border-primary focus:ring-1 focus:ring-primary outline-none"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={handleVerifyOtp}
+                                  disabled={verifyingOtp || otp.length < 6}
+                                  className="px-5 py-2.5 bg-emerald-600 text-white font-bold text-xs rounded-lg hover:bg-emerald-700 active:scale-95 transition-all disabled:opacity-50 flex items-center gap-1.5 shrink-0"
+                                >
+                                  {verifyingOtp ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Verify Code"}
+                                </button>
+                              </div>
+                            )}
+
+                            {otpError && (
+                              <p className="text-error text-xs font-bold flex items-center gap-1.5">
+                                <Info className="w-3.5 h-3.5" />
+                                {otpError}
+                              </p>
+                            )}
+
+                            {otpSuccessMsg && (
+                              <p className="text-emerald-600 text-xs font-bold flex items-center gap-1.5">
+                                <CheckCircle2 className="w-3.5 h-3.5" />
+                                {otpSuccessMsg}
+                              </p>
+                            )}
+                          </div>
+                        )}
+
+                        {isOtpVerified && !user && (
+                          <div className="mt-2 text-emerald-600 text-xs font-bold flex items-center gap-1 bg-emerald-50 p-2.5 rounded-lg border border-emerald-100">
+                            <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                            Verified with @iiitm.ac.in OTP
+                          </div>
+                        )}
+                      </div>
                     </motion.div>
                   )}
                 </AnimatePresence>
@@ -320,15 +524,17 @@ export default function StudentJoin() {
                 <div className="mt-10">
                   <button 
                     onClick={handleJoin}
-                    disabled={isValidating}
+                    disabled={isValidating || (isCodeValid && !user && !isOtpVerified)}
                     className={cn(
                       "w-full py-4 px-6 rounded-xl font-headline font-bold text-lg flex items-center justify-center gap-3 transition-all active:scale-95 shadow-lg",
-                      isCodeValid 
+                      isCodeValid && (user || isOtpVerified)
                         ? "bg-primary text-on-primary shadow-primary/20" 
                         : "bg-surface-container-highest text-on-surface-variant opacity-50 cursor-not-allowed"
                     )}
                   >
-                    {isCodeValid ? "Enter Quiz Room" : "Enter Room Code Above"}
+                    {isCodeValid 
+                      ? (!user && !isOtpVerified ? "Verify Email to Join" : "Enter Quiz Room")
+                      : "Enter Room Code Above"}
                     <ArrowRight className="w-5 h-5" />
                   </button>
                 </div>

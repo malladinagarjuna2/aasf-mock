@@ -509,9 +509,10 @@ export default function StudentQuiz() {
     if (!currentStudentRoll) return;
     try {
       await leaveLobby(currentStudentRoll);
-      navigate("/join");
     } catch (err) {
       console.error("Failed to leave lobby:", err);
+    } finally {
+      navigate("/join");
     }
   };
 

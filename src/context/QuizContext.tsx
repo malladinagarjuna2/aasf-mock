@@ -18,7 +18,7 @@ import {
   writeBatch
 } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType, isDemoMode } from '../firebase';
-import { useAuth } from './AuthContext';
+import { useAuth, isAdminEmail } from './AuthContext';
 import { mockStore } from '../lib/mockStore';
 
 export interface Question {
@@ -57,6 +57,7 @@ export interface Participant {
   studentId?: string | null;
   name: string;
   roll: string;
+  email?: string;
   progress: number;
   questionTimers?: Record<string, number>;
   questionExpiries?: Record<string, number>;
@@ -146,7 +147,7 @@ interface QuizContextType {
 const QuizContext = createContext<QuizContextType | undefined>(undefined);
 
 export function QuizProvider({ children }: { children: ReactNode }) {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [quiz, setQuiz] = useState<Quiz | null>(null);
   const [quizzes, setQuizzes] = useState<Quiz[]>([]);
   const [participants, setParticipants] = useState<Participant[]>([]);
@@ -249,6 +250,8 @@ export function QuizProvider({ children }: { children: ReactNode }) {
 
   // Fetch all quizzes for the teacher
   useEffect(() => {
+    const isAdmin = profile?.role?.toLowerCase() === 'admin' || isAdminEmail(user?.email);
+
     if (isDemoMode) {
       if (!user) {
         setQuizzes([]);
@@ -258,7 +261,9 @@ export function QuizProvider({ children }: { children: ReactNode }) {
       }
       
       const poll = () => {
-        const fetched = mockStore.getQuizzes().filter((q: any) => q.authorId === user.uid);
+        const fetched = isAdmin 
+          ? mockStore.getQuizzes() 
+          : mockStore.getQuizzes().filter((q: any) => q.authorId === user.uid);
         setQuizzes(fetched);
         const active = fetched.find((q: any) => q.isActive);
         if (active) {
@@ -294,7 +299,9 @@ export function QuizProvider({ children }: { children: ReactNode }) {
 
     setLoading(true);
     const quizzesRef = collection(db, 'quizzes');
-    const q = query(quizzesRef, where('authorId', '==', user.uid), orderBy('createdAt', 'desc'));
+    const q = isAdmin 
+      ? query(quizzesRef, orderBy('createdAt', 'desc'))
+      : query(quizzesRef, where('authorId', '==', user.uid), orderBy('createdAt', 'desc'));
 
     const unsubscribeQuizzes = onSnapshot(q, (snapshot) => {
       const fetchedQuizzes = snapshot.docs.map(doc => ({
@@ -342,7 +349,7 @@ export function QuizProvider({ children }: { children: ReactNode }) {
     });
 
     return () => unsubscribeQuizzes();
-  }, [user]);
+  }, [user, profile?.role]);
 
   // Restore quiz session for students from localStorage
   useEffect(() => {
@@ -803,11 +810,12 @@ export function QuizProvider({ children }: { children: ReactNode }) {
           }
 
           // Resume/Takeover: Update sessionToken and heartbeat atomically
-          transaction.update(docRef, { 
+          transaction.update(docRef, sanitizeForFirestore({ 
             sessionToken, 
             lastSeen: now,
-            status: 'Appearing'
-          });
+            status: 'Appearing',
+            ...(p.email ? { email: p.email } : {})
+          }));
         } else {
           if (latestQuiz.status === 'finished') {
             throw new Error("This quiz has finished. You can no longer join.");
@@ -1001,10 +1009,11 @@ export function QuizProvider({ children }: { children: ReactNode }) {
     try {
       const docRef = doc(db, 'quizzes', quiz.id, 'responses', roll);
       await deleteDoc(docRef);
-      setCurrentStudentRoll(null);
-      localStorage.removeItem('currentStudentRoll');
     } catch (err) {
       handleFirestoreError(err, OperationType.DELETE, `quizzes/${quiz.id}/responses/${roll}`);
+    } finally {
+      setCurrentStudentRoll(null);
+      localStorage.removeItem('currentStudentRoll');
     }
   };
 

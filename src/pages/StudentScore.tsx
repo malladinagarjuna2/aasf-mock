@@ -115,6 +115,19 @@ export default function StudentScore() {
                 </p>
               </>
             )}
+
+            {/* Student Info Pill */}
+            <div className="inline-flex flex-wrap items-center justify-center gap-3 px-5 py-2.5 bg-surface-container-low rounded-2xl border border-outline-variant/10 text-xs font-bold text-on-surface-variant">
+              <span>{participant.name}</span>
+              <span className="opacity-40">•</span>
+              <span className="font-mono text-primary">{participant.roll}</span>
+              {participant.email && (
+                <>
+                  <span className="opacity-40">•</span>
+                  <span className="text-emerald-600 dark:text-emerald-400">{participant.email}</span>
+                </>
+              )}
+            </div>
           </div>
 
           {/* Stats Grid */}
