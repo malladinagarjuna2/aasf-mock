@@ -3,11 +3,12 @@ import BottomNavBar from "@/src/components/BottomNavBar";
 import { BarChart3, Users, Award, ChevronRight, Search, ClipboardList, Trash2, Download, MessageSquare, RefreshCw, Unlock, FileText, Eye, X } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useQuiz, Participant, Quiz, Question } from "@/src/context/QuizContext";
-import { cn } from "@/src/lib/utils";
+import { cn, exportResultsToCSV } from "@/src/lib/utils";
 import { useState, useEffect, useMemo } from "react";
 import { collection, getDocs, query, where, collectionGroup, getDoc, doc } from "firebase/firestore";
-import { db, handleFirestoreError, OperationType } from "../firebase";
-import { useAuth } from "../context/AuthContext";
+import { db, handleFirestoreError, OperationType, isDemoMode } from "../firebase";
+import { useAuth, isAdminEmail } from "../context/AuthContext";
+import { mockStore } from "../lib/mockStore";
 
 import ReactMarkdown from 'react-markdown';
 import remarkMath from 'remark-math';
@@ -40,7 +41,8 @@ export default function Reports() {
   const [viewingQuestionPaper, setViewingQuestionPaper] = useState(false);
   const { gradeParticipant } = useQuiz();
 
-  const isTeacher = profile?.role?.toLowerCase() === 'educator' || profile?.role?.toLowerCase() === 'teacher';
+  const isAdmin = profile?.role?.toLowerCase() === 'admin' || isAdminEmail(user?.email);
+  const isTeacher = profile?.role?.toLowerCase() === 'educator' || profile?.role?.toLowerCase() === 'teacher' || isAdmin;
 
   useEffect(() => {
     let isMounted = true;
@@ -52,8 +54,27 @@ export default function Reports() {
       
       setLoadingParticipants(true);
       try {
+        if (isDemoMode) {
+          if (isTeacher) {
+            const participantsList: Participant[] = [];
+            authoredQuizzes.forEach(quiz => {
+              if (quiz.id) {
+                const res = mockStore.getResponsesForQuiz(quiz.id);
+                participantsList.push(...res);
+              }
+            });
+            if (isMounted) setAllParticipants(participantsList);
+          } else {
+            const allRes = mockStore.getAllResponses();
+            const myRes = allRes.filter(r => r.studentId === user.uid || r.roll === profile?.roll);
+            if (isMounted) setAllParticipants(myRes);
+          }
+          if (isMounted) setLoadingParticipants(false);
+          return;
+        }
+
         if (isTeacher) {
-          // TEACHER LOGIC: Fetch responses for all quizzes they authored
+          // TEACHER / ADMIN LOGIC: Fetch responses for all quizzes in authoredQuizzes
           if (authoredQuizzes.length === 0) {
             setAllParticipants([]);
             setLoadingParticipants(false);
@@ -362,7 +383,18 @@ export default function Reports() {
               <div>
                 <h1 className="font-headline text-4xl font-extrabold text-on-surface tracking-tight mb-2">{selectedQuiz.title}</h1>
                 <p className="text-on-surface-variant font-body text-lg">Detailed performance analysis for room code <span className="font-mono font-bold text-primary">{selectedQuiz.roomCode}</span></p>
-                <div className="flex gap-3 mt-4">
+                <div className="flex flex-wrap gap-3 mt-4">
+                  <button 
+                    onClick={() => {
+                      const parts = allParticipants.filter(p => p.quizId === selectedQuiz.id);
+                      const denom = selectedQuiz.drawCount || selectedQuiz.totalQuestions || 0;
+                      exportResultsToCSV(selectedQuiz.title, selectedQuiz.roomCode, parts, denom);
+                    }}
+                    className="flex items-center gap-2 px-4 py-2 bg-emerald-500/10 text-emerald-600 rounded-xl font-bold text-sm hover:bg-emerald-500/20 transition-all border border-emerald-500/20 shadow-sm"
+                  >
+                    <Download className="w-4 h-4" />
+                    Download CSV
+                  </button>
                   <button 
                     onClick={() => setViewingQuestionPaper(true)}
                     className="flex items-center gap-2 px-4 py-2 bg-indigo-500/10 text-indigo-600 rounded-xl font-bold text-sm hover:bg-indigo-500/20 transition-all border border-indigo-500/20"
@@ -435,6 +467,7 @@ export default function Reports() {
                         {isTeacher ? "Student" : "Name"}
                       </th>
                       <th className="px-6 py-4 font-label font-bold text-xs uppercase tracking-widest text-on-surface-variant">Roll Number</th>
+                      <th className="px-6 py-4 font-label font-bold text-xs uppercase tracking-widest text-on-surface-variant">Email</th>
                       <th className="px-6 py-4 font-label font-bold text-xs uppercase tracking-widest text-on-surface-variant">Progress</th>
                       <th className="px-6 py-4 font-label font-bold text-xs uppercase tracking-widest text-on-surface-variant">Score</th>
                       <th className="px-6 py-4 font-label font-bold text-xs uppercase tracking-widest text-on-surface-variant">Status</th>
@@ -477,6 +510,7 @@ export default function Reports() {
                               </div>
                             </td>
                             <td className="px-6 py-5 font-body text-on-surface-variant">{p.roll}</td>
+                            <td className="px-6 py-5 font-body text-xs text-on-surface-variant">{p.email || "N/A"}</td>
                             <td className="px-6 py-5">
                               <span className="text-sm font-medium text-on-surface-variant">
                                 {getAnsweredCount(p.answers)}/{selectedQuiz.drawCount || selectedQuiz.totalQuestions} answered
@@ -695,9 +729,12 @@ export default function Reports() {
                     <div className="p-6 border-b border-outline-variant/10 flex justify-between items-center bg-surface-container-low/30">
                       <div>
                         <h3 className="font-headline font-bold text-2xl">Submission Details</h3>
-                        <div className="flex gap-4 mt-1">
+                        <div className="flex flex-wrap gap-4 mt-1">
                           <p className="text-xs text-on-surface-variant uppercase tracking-widest font-bold">Student: {viewingSubmission.name}</p>
                           <p className="text-xs text-on-surface-variant uppercase tracking-widest font-bold">Roll: {viewingSubmission.roll}</p>
+                          {viewingSubmission.email && (
+                            <p className="text-xs text-primary uppercase tracking-widest font-bold font-mono">Email: {viewingSubmission.email}</p>
+                          )}
                         </div>
                       </div>
                       <button 
@@ -1131,6 +1168,19 @@ export default function Reports() {
                       </td>
                       <td className="px-6 py-5 text-right">
                         <div className="flex items-center justify-end gap-2">
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const parts = allParticipants.filter(p => p.quizId === quiz.id);
+                              const denom = quiz.drawCount || quiz.totalQuestions || 0;
+                              exportResultsToCSV(quiz.title, quiz.roomCode, parts, denom);
+                            }}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 font-bold text-xs transition-colors border border-emerald-500/20"
+                            title="Download Results CSV"
+                          >
+                            <Download className="w-3.5 h-3.5" />
+                            CSV
+                          </button>
                           {isTeacher && (
                             <button 
                               onClick={(e) => {
