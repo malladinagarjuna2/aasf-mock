@@ -20,6 +20,7 @@ import { AuthProvider, useAuth } from "./context/AuthContext";
 import { ThemeProvider } from "./context/ThemeContext";
 import { Loader2 } from "lucide-react";
 import AASFLogo from "./components/AASFLogo";
+import MobileGuard from "./components/MobileGuard";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, profile, loading } = useAuth();
@@ -140,9 +141,11 @@ export default function App() {
     <ThemeProvider>
       <AuthProvider>
         <QuizProvider>
-          <div className="min-h-screen flex flex-col">
-            <RouterProvider router={router} />
-          </div>
+          <MobileGuard>
+            <div className="min-h-screen flex flex-col">
+              <RouterProvider router={router} />
+            </div>
+          </MobileGuard>
         </QuizProvider>
       </AuthProvider>
     </ThemeProvider>
