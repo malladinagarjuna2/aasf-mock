@@ -16,11 +16,9 @@ export default function SignUp() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [otp, setOtp] = useState('');
-  const [isSandbox, setIsSandbox] = useState(false);
-  const [step, setStep] = useState<'details' | 'otp' | 'verify-email'>('details');
+  const [step, setStep] = useState<'details' | 'verify-email'>('details');
   const [verificationNotice, setVerificationNotice] = useState<string | null>(null);
-  const { signInWithGoogle, signUpWithEmail, sendOTP, verifyOTP, resendEmailVerification } = useAuth();
+  const { signInWithGoogle, signUpWithEmail, resendEmailVerification } = useAuth();
   const navigate = useNavigate();
 
   const handleInitialSubmit = async (e: React.FormEvent) => {
@@ -32,28 +30,6 @@ export default function SignUp() {
     setLoading(true);
     setError(null);
     try {
-      const data = await sendOTP(email);
-
-      if (data?.devMode) {
-        setIsSandbox(true);
-      } else {
-        setIsSandbox(false);
-      }
-
-      setStep('otp');
-    } catch (err: any) {
-      setError(err.message || 'Failed to send verification code.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleOtpVerifyAndSignUp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
-    try {
-      await verifyOTP(email, otp);
       await signUpWithEmail(email, password, name, username, role, roll);
       setVerificationNotice(`A Firebase verification email has been sent to ${email}. Please verify it before logging in.`);
       setStep('verify-email');
@@ -61,7 +37,7 @@ export default function SignUp() {
       if (err.code === 'auth/email-already-in-use') {
         setError('This email is already registered. Please go to the Login page to sign in, or use Forgot Password if you need to set a password.');
       } else {
-        setError(err.message || 'Invalid or expired verification code.');
+        setError(err.message || 'Failed to create account or send verification email.');
       }
     } finally {
       setLoading(false);
@@ -238,85 +214,9 @@ export default function SignUp() {
                 disabled={loading}
                 className="w-full py-4 bg-primary text-on-primary font-headline font-bold rounded-md shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3 disabled:opacity-70 disabled:hover:scale-100"
               >
-                {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <span>Continue</span>}
+                {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <span>Create Account</span>}
                 {!loading && <ArrowRight className="w-5 h-5" />}
               </button>
-            </motion.form>
-          ) : step === 'otp' ? (
-            <motion.form
-              key="otp-form"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
-              onSubmit={handleOtpVerifyAndSignUp}
-              className="space-y-6"
-            >
-              <div className="text-center p-4 bg-primary/5 rounded-2xl mb-2">
-                <Shield className="w-10 h-10 text-primary mx-auto mb-3" />
-                <p className="text-sm text-on-surface-variant">We've sent a 6-digit verification code to <span className="font-bold text-on-surface">{email}</span></p>
-                {isSandbox && (
-                  <div className="mt-3 p-2 bg-amber-500/10 border border-amber-500/20 rounded-lg">
-                    <p className="text-xs font-bold text-amber-600 uppercase tracking-wider">Sandbox Mode</p>
-                    <p className="text-[10px] text-amber-700 mt-0.5 leading-relaxed">Running in Sandbox mode (SMTP email not configured or unreachable).</p>
-                  </div>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-xs font-bold uppercase tracking-widest text-on-surface-variant font-label ml-1">Verification Code</label>
-                <input
-                  type="text"
-                  required
-                  value={otp}
-                  onPaste={(e) => {
-                    e.preventDefault();
-                    const pasted = e.clipboardData.getData('text');
-                    const cleaned = pasted.replace(/\D/g, '').slice(0, 6);
-                    setOtp(cleaned);
-                  }}
-                  onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                  className="w-full py-5 bg-surface-container-low border-2 border-outline-variant/30 rounded-2xl focus:ring-4 focus:ring-primary/10 focus:border-primary outline-none transition-all font-headline text-3xl font-black text-center tracking-[0.5em] placeholder:tracking-normal placeholder:text-sm placeholder:font-bold"
-                  placeholder="000000"
-                />
-              </div>
-
-              {error && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  className="p-4 bg-error/10 border border-error/20 rounded-xl text-error text-sm font-medium flex flex-col gap-2"
-                >
-                  <p>{error}</p>
-                  {error.includes('already registered') && (
-                    <Link
-                      to="/login"
-                      className="text-xs font-bold underline hover:text-error/80 transition-colors self-start"
-                    >
-                      Go to Login
-                    </Link>
-                  )}
-                </motion.div>
-              )}
-
-              <div className="flex flex-col gap-3">
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full py-4 bg-primary text-on-primary font-headline font-bold rounded-md shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3 disabled:opacity-70"
-                >
-                  {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <span>Verify & Create Account</span>}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setError(null);
-                    setStep('details');
-                  }}
-                  className="w-full py-4 text-on-surface-variant font-bold text-sm hover:bg-surface-container rounded-xl transition-colors"
-                >
-                  Back to Details
-                </button>
-              </div>
             </motion.form>
           ) : (
             <motion.div
